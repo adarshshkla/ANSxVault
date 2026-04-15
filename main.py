@@ -65,8 +65,17 @@ class NFCProvisionerThread(QThread):
         import io
         import plistlib
         import threading
-        from flask import Flask, send_file, request as freq, jsonify, render_template_string
-        import qrcode
+        
+        # Ensure imports are resolved robustly for terminal users
+        global Flask, send_file, freq, jsonify, render_template_string, qrcode
+        try:
+            from flask import Flask, send_file, request as freq, jsonify, render_template_string
+            import qrcode
+        except ImportError:
+            import sys
+            sys.path.append("/Users/adarshnarainshukla/Library/Python/3.9/lib/python/site-packages")
+            from flask import Flask, send_file, request as freq, jsonify, render_template_string
+            import qrcode
 
         seed    = f"ANSX-VAULT-SEED-{secrets.token_hex(8).upper()}"
         done    = threading.Event()
