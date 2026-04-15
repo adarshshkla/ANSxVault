@@ -410,7 +410,7 @@
 		</data>
 		<key>Resources/base_library.zip</key>
 		<data>
-		UgWhtCpLcQWp1WP5lE4sjaijq6M=
+		EarnOsJjhf6JCz4pXoF5XtlGs+g=
 		</data>
 		<key>Resources/boto3/data/cloudformation/2010-05-15/resources-1.json</key>
 		<data>
@@ -9893,6 +9893,15 @@
 			<key>symlink</key>
 			<string>PIL/.dylibs/libbrotlidec.1.1.0.dylib</string>
 		</dict>
+		<key>Frameworks/libcrypto.3.dylib</key>
+		<dict>
+			<key>cdhash</key>
+			<data>
+			LjSnoT9MO8n5gO3Hm1eotpQWyCg=
+			</data>
+			<key>requirement</key>
+			<string>cdhash H"2e34a7a13f4c3bc9f980edc79b57a8b69416c828"</string>
+		</dict>
 		<key>Frameworks/libfreetype.6.dylib</key>
 		<dict>
 			<key>symlink</key>
@@ -9932,6 +9941,15 @@
 		<dict>
 			<key>symlink</key>
 			<string>PIL/.dylibs/libsharpyuv.0.dylib</string>
+		</dict>
+		<key>Frameworks/libshatter.so</key>
+		<dict>
+			<key>cdhash</key>
+			<data>
+			xKjojWOj2bEHIhHX5DOjzFgKG6M=
+			</data>
+			<key>requirement</key>
+			<string>cdhash H"c4a8e88d63a3d9b1072211d7e433a3cc580a1ba3"</string>
 		</dict>
 		<key>Frameworks/libtiff.6.dylib</key>
 		<dict>
@@ -11406,7 +11424,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			EDfdVk/eNYY0aB1r9g1JgnhUfL7WDNFGhU/3Ci+VT0w=
+			+9boz1jzQepNibw19bn7Pf53H+5h7GhXPus3oDrNVwo=
 			</data>
 		</dict>
 		<key>Resources/bitarray</key>
@@ -25445,6 +25463,11 @@
 			<key>symlink</key>
 			<string>PIL/.dylibs/libbrotlidec.1.1.0.dylib</string>
 		</dict>
+		<key>Resources/libcrypto.3.dylib</key>
+		<dict>
+			<key>symlink</key>
+			<string>../Frameworks/libcrypto.3.dylib</string>
+		</dict>
 		<key>Resources/libfreetype.6.dylib</key>
 		<dict>
 			<key>symlink</key>
@@ -25484,6 +25507,11 @@
 		<dict>
 			<key>symlink</key>
 			<string>PIL/.dylibs/libsharpyuv.0.dylib</string>
+		</dict>
+		<key>Resources/libshatter.so</key>
+		<dict>
+			<key>symlink</key>
+			<string>../Frameworks/libshatter.so</string>
 		</dict>
 		<key>Resources/libtiff.6.dylib</key>
 		<dict>

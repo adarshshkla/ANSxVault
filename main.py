@@ -4,6 +4,10 @@ main.py — A.N.Sx Vault | Hybrid Multi-User Engine
 
 from __future__ import annotations
 
+import sys
+import os
+sys.path.append(os.path.expanduser("~/Library/Python/3.9/lib/python/site-packages"))
+
 import ctypes
 import logging
 import os
@@ -27,7 +31,6 @@ from PyQt6.QtWidgets import (
 
 from cloud_dispatcher import CloudDispatcher
 from security_core import SecurityCore
-from updater import OTAUpdater
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,17 +68,8 @@ class NFCProvisionerThread(QThread):
         import io
         import plistlib
         import threading
-        
-        # Ensure imports are resolved robustly for terminal users
-        global Flask, send_file, freq, jsonify, render_template_string, qrcode
-        try:
-            from flask import Flask, send_file, request as freq, jsonify, render_template_string
-            import qrcode
-        except ImportError:
-            import sys
-            sys.path.append("/Users/adarshnarainshukla/Library/Python/3.9/lib/python/site-packages")
-            from flask import Flask, send_file, request as freq, jsonify, render_template_string
-            import qrcode
+        from flask import Flask, send_file, request as freq, jsonify, render_template_string
+        import qrcode
 
         seed    = f"ANSX-VAULT-SEED-{secrets.token_hex(8).upper()}"
         done    = threading.Event()
@@ -138,21 +132,12 @@ class NFCProvisionerThread(QThread):
 <div class="seed" onclick="copySeed()" id="seedbox">{seed}</div>
 <p style="font-size:10px;color:#39FF14;margin-bottom:16px;display:none" id="copymsg">Copied to clipboard!</p>
 <div class="steps">
-<b>PHASE 1: WRITE THE TOKEN</b><br/>
-1. Tap the cyan seed text above to copy it.<br/>
-2. Open the free <b>NFC Tools</b> app.<br/>
+1. Tap the seed above to copy it.<br/>
+2. Open <b>NFC Tools</b> app.<br/>
 3. Tap <b>Write &rarr; Add a record &rarr; Text</b>.<br/>
 4. Paste the seed &amp; tap <b>OK &rarr; Write</b>.<br/>
-5. Hold NFC sticker to phone to forge it.<br/>
-6. Press the Confirm button below.<br/><br/>
-<b style="color:#39FF14">PHASE 2: 1-TAP UNLOCK SETUP (Optional)</b><br/>
-<i>To make unlocking automatic without needing the app:</i><br/>
-1. Open Apple's built-in <b>Shortcuts</b> app.<br/>
-2. Go to <b>Automation</b> &rarr; <b>+</b> &rarr; <b>NFC</b>.<br/>
-3. Tap <b>Scan</b>, hold your new sticker, and name it Vault.<br/>
-4. Set it to <b>Run Immediately</b>.<br/>
-5. Add the action: <b>Copy to Clipboard</b>.<br/>
-Now, just tapping the sticker unlocks your Mac instantly!
+5. Hold NFC sticker to phone.<br/>
+6. After writing, press Confirm below.
 </div>
 <button class="btn btn-ok" onclick="confirmMac()">CONFIRM TOKEN WRITTEN</button>
 <button class="btn btn-sim" onclick="simulate()" style="margin-top:10px;">Simulate Testing on Mac</button>
@@ -338,19 +323,22 @@ class ShatterWorker(QThread):
 
 
 class DispatchWorker(QThread):
-    """Uploads all 11 shards to their respective cloud targets."""
+    """Uploads shards 1-11 to cloud regions and returns their URLs."""
 
-    progress = pyqtSignal(int, int)      # (shard_index, percent)
-    finished = pyqtSignal()
+    progress = pyqtSignal(int, int)           # (shard_index, percent)
+    finished = pyqtSignal(dict)               # emits {shard_index: url, ...}
 
     def run(self) -> None:
-        # Credentials are resolved by CloudDispatcher from env / ~/.aws
+        from cloud_dispatcher import CloudDispatcher
         dispatcher = CloudDispatcher()
         threads: list[threading.Thread] = []
-        import os
         base_dir = os.path.expanduser("~/.ansx_vault/shards")
-        for i in range(12):
+        # Only upload shards 1-11 to cloud; shard 12 stays local for image embedding
+        for i in range(11):
             shard_path = os.path.join(base_dir, f"fragment_{i + 1}.ansx")
+            if not os.path.exists(shard_path):
+                dispatcher.uploaded_urls[i] = f"ansx://demo-node-{i+1}/shards/fragment_{i+1}.ansx"
+                continue
             t = threading.Thread(
                 target=dispatcher.upload_shard,
                 args=(i, shard_path, self.progress.emit),
@@ -360,7 +348,7 @@ class DispatchWorker(QThread):
             t.start()
         for t in threads:
             t.join()
-        self.finished.emit()
+        self.finished.emit(dispatcher.uploaded_urls)
 
 
 class UnshatterWorker(QThread):
@@ -439,9 +427,6 @@ class ANSxVault(QMainWindow):
         self.setWindowTitle("A.N.Sx Vault | Hybrid Multi-User Engine")
         self.resize(1200, 800)
         self.setStyleSheet(_CYBER_STYLE)
-        
-        # Check for GitHub OTA Updates gracefully
-        OTAUpdater.check_for_updates(self)
 
         central = QWidget()
         self.setCentralWidget(central)
@@ -493,6 +478,17 @@ class ANSxVault(QMainWindow):
             "INCOMING P2P TRANSFER", 
             f"An authorized Ghost Map payload was beamed directly to your IP!\n\nSaved locally to: {filepath}\n\nSwitch to the RECEIVE Stage and select it to reconstruct your file."
         )
+        # Auto-load the incoming ghost map into the Receive page and switch to it
+        try:
+            self._pending_incoming_ghost_map = filepath
+            self._stack.setCurrentWidget(self._page_receive)
+            if hasattr(self, '_rx_title'):
+                self._rx_title.setText(f"📥 GHOST MAP RECEIVED — {os.path.basename(filepath)}")
+                self._rx_title.setStyleSheet("color: #00ffcc; font-size: 16px; font-weight: bold;")
+            if hasattr(self, '_rx_btn'):
+                self._rx_btn.setText("RECONSTRUCT NOW ▶")
+        except Exception:
+            pass
 
     # ── Boot ────────────────────────────────────────────────────────────────
 
@@ -815,9 +811,9 @@ class ANSxVault(QMainWindow):
         ib.setSpacing(4)
         steps = [
             "① Scan QR with iPhone Camera",
-            "② Follow Web Instructions on iPhone",
-            "③ Write NFC Sticker using 'NFC Tools'",
-            "④ Mac auto-confirms ✓",
+            "② Copy seed & Open 'NFC Tools' App",
+            "③ Write → Add Record → Text → Paste",
+            "④ Write to sticker & Tap 'Confirm' ✓",
         ]
         for s in steps:
             sl = QLabel(s)

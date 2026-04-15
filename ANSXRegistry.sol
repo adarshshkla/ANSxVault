@@ -16,6 +16,9 @@ contract ANSXRegistry {
     // Map a username to a boolean to prevent overwriting keys
     mapping(string => bool) private isRegistered;
 
+    // Track all registered usernames for enumeration
+    string[] private userList;
+
     event ProfileRegistered(string indexed username, string pubKey, string ipAddress);
 
     /**
@@ -30,13 +33,13 @@ contract ANSXRegistry {
         publicKeys[username] = pubKey;
         userIPs[username] = ipAddr;
         isRegistered[username] = true;
+        userList.push(username);
         
         emit ProfileRegistered(username, pubKey, ipAddr);
     }
 
     /**
      * @dev Fetch an operator's public key.
-     * @param username The exact handle of the operator.
      */
     function getPublicKey(string memory username) public view returns (string memory) {
         require(isRegistered[username], "Operator not found in the blockchain registry.");
@@ -45,9 +48,22 @@ contract ANSXRegistry {
     
     /**
      * @dev Fetch an operator's P2P IP address.
-     * @param username The exact handle of the operator.
      */
     function getIPAddress(string memory username) public view returns (string memory) {
         return userIPs[username];
+    }
+
+    /**
+     * @dev Returns all registered usernames for populating dropdowns.
+     */
+    function getAllUsers() public view returns (string[] memory) {
+        return userList;
+    }
+
+    /**
+     * @dev Check if a username is registered.
+     */
+    function isUserRegistered(string memory username) public view returns (bool) {
+        return isRegistered[username];
     }
 }

@@ -164,11 +164,21 @@ class SecurityCore:
         # Publish directly to Web3 Decentralized PKI!
         try:
             import web3_bridge
+            import socket
+            # Auto-detect this machine's LAN IP for P2P routing
+            try:
+                s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                s.connect(("8.8.8.8", 80))
+                local_ip = s.getsockname()[0]
+                s.close()
+            except Exception:
+                local_ip = "127.0.0.1"
+
             engine = web3_bridge.get_web3_engine()
-            engine.register_identity(operator_name, pem_public.decode("utf-8"))
-            logger.info("Web3: Identity '%s' permanently secured on the blockchain ledger.", operator_name)
+            engine.register_identity(operator_name, pem_public.decode("utf-8"), local_ip)
+            logger.info("Web3: Identity '%s' registered at IP %s.", operator_name, local_ip)
         except Exception as e:
-            logger.error("Web3 Registration Failed. Make sure you are using a unique username. %s", e)
+            logger.error("Web3 Registration Failed: %s", e)
             raise RuntimeError(f"Blockchain Identity Conflict: {e}")
 
         logger.info("Identity established for operator '%s' (vault_id=%s)", operator_name, vault_id)
