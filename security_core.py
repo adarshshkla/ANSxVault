@@ -196,6 +196,21 @@ class SecurityCore:
             return json.load(f)
 
     @classmethod
+    def delete_identity(cls, operator_name: str) -> bool:
+        """Deletes the identity block for the operator, wiping them from the device."""
+        if not operator_name:
+            return False
+        filepath = os.path.join(IDENTITY_DIR, f"{operator_name}.json")
+        try:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+                logger.info("Identity '%s' wiped from device.", operator_name)
+                return True
+        except Exception as e:
+            logger.error("Failed to delete identity '%s': %s", operator_name, e)
+        return False
+
+    @classmethod
     def verify_login(cls, operator_name: str, nfc_seed: str) -> bool:
         """
         Verifies that the NFC tag matches the stored machine-bound anchor.

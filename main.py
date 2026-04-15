@@ -576,9 +576,15 @@ class ANSxVault(QMainWindow):
 
         lock_btn = QPushButton("  🔒 LOCK VAULT")
         lock_btn.setObjectName("NavBtn")
-        lock_btn.setStyleSheet("color: #ff3366; font-weight: bold; margin-top: 10px;")
+        lock_btn.setStyleSheet("color: #ffcc00; font-weight: bold; margin-top: 10px;")
         lock_btn.clicked.connect(self._lock_vault)
         layout.addWidget(lock_btn)
+
+        wipe_btn = QPushButton("  🧨 WIPE DEVICE IDENTITY")
+        wipe_btn.setObjectName("NavBtn")
+        wipe_btn.setStyleSheet("color: #ff3333; font-weight: bold; margin-top: 10px;")
+        wipe_btn.clicked.connect(self._wipe_identity)
+        layout.addWidget(wipe_btn)
 
         layout.addStretch()
 
@@ -600,6 +606,23 @@ class ANSxVault(QMainWindow):
         self._op_label.setText("OP: UNAUTHENTICATED")
         self._boot_sequence()
 
+    def _wipe_identity(self) -> None:
+        if not self.current_operator:
+            return
+        
+        reply = QMessageBox.warning(
+            self,
+            "WIPE IDENTITY",
+            f"Are you sure you want to permanently delete the identity '{self.current_operator}' from this device? This will wipe the private key.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        
+        if reply == QMessageBox.StandardButton.Yes:
+            SecurityCore.delete_identity(self.current_operator)
+            self._lock_vault()
+
+    def _run_genesis(self) -> None:
         name = self._name_input.text().strip()
         if not name:
             QMessageBox.warning(self, "Error", "Operator Alias Required.")
