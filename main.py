@@ -815,8 +815,8 @@ class ANSxVault(QMainWindow):
         ib.setSpacing(4)
         steps = [
             "① Scan QR with iPhone Camera",
-            "② Tap page → Download Shortcut",
-            "③ Install → Run → Hold NFC sticker",
+            "② Follow Web Instructions on iPhone",
+            "③ Write NFC Sticker using 'NFC Tools'",
             "④ Mac auto-confirms ✓",
         ]
         for s in steps:
