@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 
 from cloud_dispatcher import CloudDispatcher
 from security_core import SecurityCore
+from updater import OTAUpdater
 
 logging.basicConfig(
     level=logging.INFO,
@@ -420,6 +421,9 @@ class ANSxVault(QMainWindow):
         self.setWindowTitle("A.N.Sx Vault | Hybrid Multi-User Engine")
         self.resize(1200, 800)
         self.setStyleSheet(_CYBER_STYLE)
+        
+        # Check for GitHub OTA Updates gracefully
+        OTAUpdater.check_for_updates(self)
 
         central = QWidget()
         self.setCentralWidget(central)
