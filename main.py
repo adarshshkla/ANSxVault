@@ -138,12 +138,21 @@ class NFCProvisionerThread(QThread):
 <div class="seed" onclick="copySeed()" id="seedbox">{seed}</div>
 <p style="font-size:10px;color:#39FF14;margin-bottom:16px;display:none" id="copymsg">Copied to clipboard!</p>
 <div class="steps">
-1. Tap the seed above to copy it.<br/>
-2. Open <b>NFC Tools</b> app.<br/>
+<b>PHASE 1: WRITE THE TOKEN</b><br/>
+1. Tap the cyan seed text above to copy it.<br/>
+2. Open the free <b>NFC Tools</b> app.<br/>
 3. Tap <b>Write &rarr; Add a record &rarr; Text</b>.<br/>
 4. Paste the seed &amp; tap <b>OK &rarr; Write</b>.<br/>
-5. Hold NFC sticker to phone.<br/>
-6. After writing, press Confirm below.
+5. Hold NFC sticker to phone to forge it.<br/>
+6. Press the Confirm button below.<br/><br/>
+<b style="color:#39FF14">PHASE 2: 1-TAP UNLOCK SETUP (Optional)</b><br/>
+<i>To make unlocking automatic without needing the app:</i><br/>
+1. Open Apple's built-in <b>Shortcuts</b> app.<br/>
+2. Go to <b>Automation</b> &rarr; <b>+</b> &rarr; <b>NFC</b>.<br/>
+3. Tap <b>Scan</b>, hold your new sticker, and name it Vault.<br/>
+4. Set it to <b>Run Immediately</b>.<br/>
+5. Add the action: <b>Copy to Clipboard</b>.<br/>
+Now, just tapping the sticker unlocks your Mac instantly!
 </div>
 <button class="btn btn-ok" onclick="confirmMac()">CONFIRM TOKEN WRITTEN</button>
 <button class="btn btn-sim" onclick="simulate()" style="margin-top:10px;">Simulate Testing on Mac</button>
