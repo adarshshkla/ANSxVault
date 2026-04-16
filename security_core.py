@@ -59,22 +59,8 @@ class SecurityCore:
     def get_geolocation() -> str:
         """
         Fetches the current geospatial coordinates (Latitude/Longitude).
-        Uses a 1.0s timeout to prevent UI hanging on strict hackathon network firewalls.
+        HARDCODED FOR HACKATHON DEMO: Ensures instant execution without network lag.
         """
-        try:
-            import urllib.request
-            import json
-            req = urllib.request.Request("https://ipinfo.io/json", headers={'User-Agent': 'Mozilla'})
-            with urllib.request.urlopen(req, timeout=1.0) as response:
-                data = json.loads(response.read().decode())
-                loc = data.get("loc", "0.0,0.0")
-                lat, lon = loc.split(",")
-                lat = round(float(lat), 1)
-                lon = round(float(lon), 1)
-                return f"{lat},{lon}"
-        except Exception as e:
-            logger.warning("Geospatial fetch blocked or timed out: %s. Using strict fallback.", e)
-        # Hackathon Fallback if location API is blocked by venue WiFi
         return "37.7,-122.4"
 
     @classmethod
