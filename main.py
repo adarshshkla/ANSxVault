@@ -128,18 +128,22 @@ class NFCProvisionerThread(QThread):
 </head><body><div class="card">
 <div class="logo">A.N.Sx VAULT SYSTEM</div>
 <h1>NFC PROVISIONER</h1>
-<p class="sub">Apple blocked unsigned Shortcuts.<br/>Write the tag using <b>NFC Tools</b> (App Store).</p>
+<p class="sub">Binding Mobile Hardware to Operator DNA</p>
 <div class="seed" onclick="copySeed()" id="seedbox">{seed}</div>
 <p style="font-size:10px;color:#39FF14;margin-bottom:16px;display:none" id="copymsg">Copied to clipboard!</p>
 <div class="steps">
-1. Tap the seed above to copy it.<br/>
-2. Open <b>NFC Tools</b> app.<br/>
-3. Tap <b>Write &rarr; Add a record &rarr; Text</b>.<br/>
-4. Paste the seed &amp; tap <b>OK &rarr; Write</b>.<br/>
-5. Hold NFC sticker to phone.<br/>
-6. After writing, press Confirm below.
+<b>HOW TO SET UP YOUR iPHONE:</b><br/>
+1. Open the Apple <b>Shortcuts</b> app.<br/>
+2. Tap <b>+</b> to create a new Shortcut.<br/>
+3. Add a <b>"Text"</b> action.<br/>
+4. Tap the seed above to copy it, and paste it into the Text box.<br/>
+5. Add a <b>"Copy to Clipboard"</b> action directly below the Text.<br/>
+6. Save the shortcut as <b>"ANSX Unlock"</b>.<br/>
+<br/>
+<b>HOW TO LOGIN:</b> Just tap your new shortcut! It will beam the seed to the Mac instantly.<br/>
 </div>
-<button class="btn btn-ok" onclick="confirmMac()">CONFIRM TOKEN WRITTEN</button>
+<button class="btn btn-ok" onclick="confirmMac()" style="margin-top:10px;">CONFIRM SETUP COMPLETE</button>
+</div>
 <button class="btn btn-sim" onclick="simulate()" style="margin-top:10px;">Simulate Testing on Mac</button>
 <div class="ok" id="ok">&#10003; Mac confirmed! Vault token enrolled.</div>
 </div>
@@ -199,7 +203,22 @@ function simulate() {{
         pmap  = QPixmap.fromImage(qimg)
         self.qr_ready.emit(pmap, url)
 
-        done.wait()  # Block until iPhone confirms
+        # Clear clipboard to avoid stale data
+        subprocess.run(["pbcopy"], input=b"", check=False)
+
+        # Block until iPhone confirms via Web AND/OR Clipboard receives the exact seed (proving the tap worked)
+        while not done.is_set():
+            try:
+                data = subprocess.check_output(["pbpaste"], timeout=1).decode().strip()
+                if data == seed:
+                    written["seed"] = seed
+                    # Clear the clipboard immediately after detecting
+                    subprocess.run(["pbcopy"], input=b"VAULT_LOCKED", check=False)
+                    break
+            except Exception:
+                pass
+            time.sleep(0.5)
+
         self.seed_confirmed.emit(written["seed"])
 
 _NFC_PREFIX  = "ANSX-VAULT-SEED-"
