@@ -48,6 +48,11 @@ def init_db():
                 dropped_at  INTEGER NOT NULL,
                 consumed    INTEGER NOT NULL DEFAULT 0
             );
+            CREATE TABLE IF NOT EXISTS taps (
+                target_user TEXT PRIMARY KEY,
+                seed        TEXT NOT NULL,
+                tapped_at   INTEGER NOT NULL
+            );
         """)
 
 @contextmanager
@@ -72,6 +77,10 @@ class RegisterRequest(BaseModel):
 class UpdateIPRequest(BaseModel):
     username: str
     ip_address: str
+
+class TapRequest(BaseModel):
+    username: str
+    seed: str
 
 # ─── Identity endpoints ───────────────────────────────────────────────────────
 
@@ -183,3 +192,34 @@ def download(drop_id: int, username: str):
         media_type="image/png",
         headers={"Content-Disposition": f'attachment; filename="{row["filename"]}"'}
     )
+
+# ─── Mesh Tap endpoints ───────────────────────────────────────────────────────
+
+@app.post("/v1/auth/post_tap", tags=["Auth"])
+def post_tap(req: TapRequest):
+    """Called by iPhone Shortcut to signal a hardware tap via the mesh."""
+    with db() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO taps (target_user, seed, tapped_at) VALUES (?, ?, ?)",
+            (req.username, req.seed, int(time.time()))
+        )
+    logger.info("Mesh Tap received for user: %s", req.username)
+    return {"status": "tapped", "user": req.username}
+
+@app.get("/v1/auth/get_tap/{username}", tags=["Auth"])
+def get_tap(username: str):
+    """Called by Mac app to check for any pending tap signals. Consumes if found."""
+    with db() as conn:
+        row = conn.execute(
+            "SELECT seed, tapped_at FROM taps WHERE target_user = ?", (username,)
+        ).fetchone()
+        if not row:
+            return {"status": "idle"}
+        
+        # TTL: Only accept taps from the last 60 seconds
+        if int(time.time()) - row["tapped_at"] > 60:
+            conn.execute("DELETE FROM taps WHERE target_user = ?", (username,))
+            return {"status": "expired"}
+            
+        conn.execute("DELETE FROM taps WHERE target_user = ?", (username,))
+        return {"status": "confirmed", "seed": row["seed"]}
