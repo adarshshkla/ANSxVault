@@ -101,21 +101,20 @@ class UI_Updates:
         outbox_dir = os.path.expanduser("~/.ansx_vault/outbox")
         os.makedirs(outbox_dir, exist_ok=True)
 
-        # Read shard 12 (the local anchor shard) as base64
-        shard12_path = os.path.join(os.path.expanduser("~/.ansx_vault/shards"), "fragment_12.ansx")
-        shard12_b64 = ""
-        if os.path.exists(shard12_path):
-            with open(shard12_path, "rb") as f:
-                shard12_b64 = base64.b64encode(f.read()).decode()
-        else:
-            shard12_b64 = "SHARD_12_DEMO_DATA"
+        shard_binaries = {}
+        local_src = os.path.expanduser("~/.ansx_vault/shards")
+        for i in range(1, 13):
+            spath = os.path.join(local_src, f"fragment_{i}.ansx")
+            if os.path.exists(spath):
+                with open(spath, "rb") as f:
+                    shard_binaries[f"fragment_{i}.ansx"] = base64.b64encode(f.read()).decode()
 
         manifest_data = {
             "original_file": os.path.basename(file_path),
             "ephemeral_key": self._ephemeral_master_key,
             "shard_count": 12,
             "cloud_urls": {str(k): v for k, v in shard_urls.items()},
-            "shard_12": shard12_b64,
+            "shard_payload": shard_binaries
         }
 
         # Save manifest JSON to outbox for reference
@@ -341,6 +340,7 @@ class UI_Updates:
 
         self._send_title.setText(f"GHOST MAP LOCKED FOR {target_user.upper()} ✔")
         self._send_title.setStyleSheet("color: #00ffcc; font-size: 15px;")
+        return out_img
 
     @staticmethod
     def set_ghost_map_preview(self, image_path: str) -> None:
@@ -483,24 +483,26 @@ class UI_Updates:
         QApplication.processEvents()
 
 
-        uris = manifest.get("cloud_uris", [])
+        uris = manifest.get("cloud_urls", {})
         if not uris:
-            QMessageBox.critical(self, "Error", "No cloud URIs found in Ghost Map.")
+            QMessageBox.critical(self, "Error", "No cloud URLs found in Ghost Map.")
             return
             
-        # Instead of real network requests, we mock pulling from local store to simulate Cloud sync
         import time
-        import shutil
+        import base64
         shard_dir = os.path.expanduser("~/.ansx_vault/downloaded_shards")
         os.makedirs(shard_dir, exist_ok=True)
-        local_src = os.path.expanduser("~/.ansx_vault/shards")
         
-        for i, uri in enumerate(uris):
-            # Simulation delay
-            time.sleep(0.05)
-            src_file = os.path.join(local_src, f"fragment_{i+1}.ansx")
-            if os.path.exists(src_file):
-                shutil.copy(src_file, os.path.join(shard_dir, f"fragment_{i+1}.ansx"))
+        shard_payload = manifest.get("shard_payload", {})
+        if not shard_payload:
+            QMessageBox.critical(self, "Error", "No bundled shards found in offline manifest.")
+            return
+
+        for fname, b64_data in shard_payload.items():
+            time.sleep(0.02)  # tiny simulation delay
+            out_path = os.path.join(shard_dir, fname)
+            with open(out_path, "wb") as f:
+                f.write(base64.b64decode(b64_data))
 
         decrypted_aes_key = manifest["ephemeral_key"]
         
