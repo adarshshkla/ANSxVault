@@ -62,7 +62,9 @@ class NFCProvisionerThread(QThread):
     seed_confirmed = pyqtSignal(str)   # emits the seed when iPhone confirms
     qr_ready       = pyqtSignal(object, str)  # emits (QPixmap, url) when QR is ready
 
-    def run(self) -> None:
+    def __init__(self, operator_name: str = ""):
+        super().__init__()
+        self.operator_name = operator_name
         import secrets
         import socket
         import io
@@ -207,16 +209,33 @@ function simulate() {{
         subprocess.run(["pbcopy"], input=b"", check=False)
 
         # Block until iPhone confirms via Web AND/OR Clipboard receives the exact seed (proving the tap worked)
+        import urllib.request
+        import web3_bridge
+        import json
+
+        count = 0
         while not done.is_set():
             try:
+                # 1. Check Local Clipboard (Primary)
                 data = subprocess.check_output(["pbpaste"], timeout=1).decode().strip()
                 if data == seed:
                     written["seed"] = seed
-                    # Clear the clipboard immediately after detecting
                     subprocess.run(["pbcopy"], input=b"VAULT_LOCKED", check=False)
                     break
+                
+                # 2. Check Mesh Relay (Fallback every 2 seconds)
+                if self.operator_name and count % 4 == 0:
+                    relay_url = web3_bridge.RELAY_URL
+                    try:
+                        with urllib.request.urlopen(f"{relay_url}/v1/auth/get_tap/{self.operator_name.lower()}") as r:
+                            res = json.loads(r.read().decode())
+                            if res.get("status") == "confirmed" and res.get("seed") == seed:
+                                written["seed"] = seed
+                                break
+                    except: pass
             except Exception:
                 pass
+            count += 1
             time.sleep(0.5)
 
         self.seed_confirmed.emit(written["seed"])
@@ -258,7 +277,7 @@ class NFCListenerThread(QThread):
                 if self.target_user and count % 10 == 0:
                     relay_url = web3_bridge.RELAY_URL
                     try:
-                        with urllib.request.urlopen(f"{relay_url}/v1/auth/get_tap/{self.target_user}") as r:
+                        with urllib.request.urlopen(f"{relay_url}/v1/auth/get_tap/{self.target_user.lower()}") as r:
                             res = json.loads(r.read().decode())
                             if res.get("status") == "confirmed":
                                 seed = res["seed"]
@@ -698,8 +717,8 @@ class ANSxVault(QMainWindow):
         self._terminal_out.append("> LAUNCHING NFC PROVISIONER — SCAN QR WITH iPHONE...")
         QApplication.processEvents()
 
-        # Start the provisioner thread
-        self._provisioner = NFCProvisionerThread()
+        # Start the provisioner thread with the operator name for mesh polling
+        self._provisioner = NFCProvisionerThread(operator_name=name)
         self._provisioner.qr_ready.connect(self._show_qr_dialog)
         self._provisioner.seed_confirmed.connect(self._finalize_registration)
         self._provisioner.start()
