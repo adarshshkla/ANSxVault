@@ -226,27 +226,53 @@ _POLL_INTERVAL = 0.2   # seconds
 
 
 class NFCListenerThread(QThread):
-    """Background thread that polls the macOS Universal Clipboard for a vault seed."""
-
+    """
+    Background thread that polls the macOS Universal Clipboard AND the Mesh Relay
+    for a vault seed. This ensures high-reliability unlocking even if iCloud fails.
+    """
     authorized = pyqtSignal(str)
 
+    def __init__(self, target_user: str = ""):
+        super().__init__()
+        self.target_user = target_user
+
     def run(self) -> None:
+        import urllib.request
+        import web3_bridge
+        
         # Zero the clipboard to prevent stale seeds from re-triggering
         subprocess.run(["pbcopy"], input=b"", check=False)
-        logger.info("[NFC] Wiretap active – scanning clipboard every %.0fms …", _POLL_INTERVAL * 1000)
+        logger.info("[NFC] Bridge active — scanning Clipboard + Mesh Relay for '%s'...", self.target_user or "any")
 
+        count = 0
         while not self.isInterruptionRequested():
             try:
-                data = subprocess.check_output(["pbpaste"], timeout=1).decode().strip()
+                # 1. Check Local Clipboard (Primary/Fast)
+                data = subprocess.check_output(["pbpaste"], timeout=0.5).decode().strip()
                 if data.startswith(_NFC_PREFIX):
-                    logger.info("[NFC] Bridge triggered: seed prefix detected.")
-                    subprocess.run(["pbcopy"], input=b"VAULT_LOCKED", check=False)
+                    logger.info("[NFC] Clipboard Bridge triggered for %s.", self.target_user)
                     self.authorized.emit(data)
                     return
-            except subprocess.TimeoutExpired:
-                pass
+
+                # 2. Check Mesh Relay (Secondary/Fallback every ~2 seconds)
+                if self.target_user and count % 10 == 0:
+                    relay_url = web3_bridge.RELAY_URL
+                    try:
+                        with urllib.request.urlopen(f"{relay_url}/v1/auth/get_tap/{self.target_user}") as r:
+                            res = json.loads(r.read().decode())
+                            if res.get("status") == "confirmed":
+                                seed = res["seed"]
+                                logger.info("[NFC] Mesh Mesh Relay Bridge triggered for %s.", self.target_user)
+                                self.authorized.emit(seed)
+                                return
+                    except Exception as e:
+                        # Silent failure for relay polling
+                        pass
+
             except Exception:
                 pass
+            
+            count += 1
             time.sleep(_POLL_INTERVAL)
 
     def stop(self) -> None:
@@ -263,26 +289,33 @@ class NFCLockScreen(QDialog):
 
         self.setWindowTitle("A.N.Sx HARDWARE LOCK")
         self.setFixedSize(560, 300)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
-        self.setStyleSheet("background-color: #0a0a0c; border: 2px solid #ff3366;")
+        self.setStyleSheet("background-color: #0d0e15; border: 2px solid #B14CFF; border-radius: 15px;")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(40, 40, 40, 40)
+        
+        title = QLabel("HARDWARE DNA REQUIRED")
+        title.setStyleSheet("color: #B14CFF; font-size: 20px; font-weight: bold; letter-spacing: 2px;")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(title)
 
-        msg = (
-            f"OPERATOR: {target_operator}\n\nAWAITING PHYSICAL NFC TAP…"
-            if target_operator else
-            "SYSTEM LOCKED\n\nAWAITING PHYSICAL NFC TAP…"
-        )
-        self.label = QLabel(msg)
+        status_box = QFrame()
+        status_box.setStyleSheet("background: #11121A; border: 1px solid #24283B; border-radius: 10px; margin: 20px 0;")
+        sl = QVBoxLayout(status_box)
+        
+        self.label = QLabel(f"Awaiting Tap for '{target_operator}'...")
+        self.label.setStyleSheet("color: #7AA2F7; font-family: monospace; font-size: 13px;")
         self.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.label.setStyleSheet(
-            "color: #ff3366; font-size: 20px; font-family: 'Courier New'; "
-            "font-weight: bold; letter-spacing: 2px;"
-        )
-        layout.addWidget(self.label)
+        sl.addWidget(self.label)
+        
+        self.bridge_indicator = QLabel("● MESH BRIDGE ACTIVE (POLLING RELAY)")
+        self.bridge_indicator.setStyleSheet("color: #39FF14; font-size: 10px; font-weight: bold;")
+        self.bridge_indicator.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sl.addWidget(self.bridge_indicator)
+        
+        layout.addWidget(status_box)
 
-        self._listener = NFCListenerThread()
+        self._listener = NFCListenerThread(target_user=target_operator)
         self._listener.authorized.connect(self._on_tap)
         self._listener.start()
 
