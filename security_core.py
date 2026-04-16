@@ -37,22 +37,9 @@ class SecurityCore:
     def get_machine_id() -> str:
         """
         Returns a stable, hardware-derived machine identifier.
-        Uses IOPlatformUUID on macOS for a more robust anchor than uuid.getnode()
-        (which can change if the MAC address changes).
-        Falls back to uuid.getnode() on other platforms.
+        HACKATHON DEMO MODE: Uses instant MAC-based UUID to prevent 'ioreg' subprocess hangs.
         """
-        try:
-            import subprocess
-            result = subprocess.check_output(
-                ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
-                timeout=3,
-                stderr=subprocess.DEVNULL,
-            ).decode()
-            for line in result.splitlines():
-                if "IOPlatformUUID" in line:
-                    return line.split('"')[-2]
-        except Exception:
-            pass
+        import uuid
         return str(uuid.getnode())
 
     @staticmethod
