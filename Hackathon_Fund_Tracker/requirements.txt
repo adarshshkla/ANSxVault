@@ -1,0 +1,9 @@
+web3>=6.0.0
+pyserial>=3.5
+PyQt5>=5.15.10
+requests>=2.31.0
+python-dotenv>=1.0.0
+pycryptodome>=3.20.0
+py-solc-x>=2.0.0
+eth-tester[pyevm]>=0.11.0
+reportlab>=4.0.0

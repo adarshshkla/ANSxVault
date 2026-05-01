@@ -37,18 +37,45 @@ class SecurityCore:
     def get_machine_id() -> str:
         """
         Returns a stable, hardware-derived machine identifier.
-        HACKATHON DEMO MODE: Uses instant MAC-based UUID to prevent 'ioreg' subprocess hangs.
+        Uses IOPlatformUUID on macOS for a more robust anchor than uuid.getnode()
+        (which can change if the MAC address changes).
+        Falls back to uuid.getnode() on other platforms.
         """
-        import uuid
+        try:
+            import subprocess
+            result = subprocess.check_output(
+                ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
+                timeout=3,
+                stderr=subprocess.DEVNULL,
+            ).decode()
+            for line in result.splitlines():
+                if "IOPlatformUUID" in line:
+                    return line.split('"')[-2]
+        except Exception:
+            pass
         return str(uuid.getnode())
 
     @staticmethod
     def get_geolocation() -> str:
         """
         Fetches the current geospatial coordinates (Latitude/Longitude).
-        HARDCODED FOR HACKATHON DEMO: Ensures instant execution without network lag.
+        Uses a free IP-based API (ip-api.com) for the prototype.
+        Rounds to 1 decimal place (~11km radius) to tolerate minor IP shifts,
+        creating a 'Safe Zone' geofence.
         """
-        return "37.7,-122.4"
+        try:
+            import urllib.request
+            import json
+            req = urllib.request.Request("http://ip-api.com/json/", headers={'User-Agent': 'Mozilla'})
+            with urllib.request.urlopen(req, timeout=3) as response:
+                data = json.loads(response.read().decode())
+                if data.get("status") == "success":
+                    lat = round(float(data.get("lat", 0.0)), 1)
+                    lon = round(float(data.get("lon", 0.0)), 1)
+                    return f"{lat},{lon}"
+        except Exception as e:
+            logger.warning("Failed to fetch geolocation: %s", e)
+        return "0.0,0.0"
 
     @classmethod
     def _derive_anchor(cls, nfc_seed: str, geolocation: str = None) -> str:

@@ -90,19 +90,18 @@ def root():
 
 @app.post("/v1/identity/register", tags=["Identity"])
 def register(req: RegisterRequest):
-    username = req.username.lower()
     with db() as conn:
         existing = conn.execute(
-            "SELECT username FROM identities WHERE username = ?", (username,)
+            "SELECT username FROM identities WHERE username = ?", (req.username,)
         ).fetchone()
         if existing:
-            raise HTTPException(status_code=409, detail=f"Identity '{username}' already anchored.")
+            raise HTTPException(status_code=409, detail=f"Identity '{req.username}' already anchored to the mesh.")
         conn.execute(
             "INSERT INTO identities (username, public_key, ip_address, registered_at) VALUES (?,?,?,?)",
-            (username, req.public_key, req.ip_address, int(time.time()))
+            (req.username, req.public_key, req.ip_address, int(time.time()))
         )
-    logger.info("New identity anchored: %s", username)
-    return {"status": "anchored", "username": username}
+    logger.info("New identity anchored: %s @ %s", req.username, req.ip_address)
+    return {"status": "anchored", "username": req.username}
 
 @app.post("/v1/identity/heartbeat", tags=["Identity"])
 def heartbeat(req: UpdateIPRequest):
@@ -115,7 +114,7 @@ def heartbeat(req: UpdateIPRequest):
             raise HTTPException(status_code=404, detail="Identity not found.")
         conn.execute(
             "UPDATE identities SET ip_address = ? WHERE username = ?",
-            (req.ip_address, req.username.lower())
+            (req.ip_address, req.username)
         )
     return {"status": "ok", "ip": req.ip_address}
 
@@ -199,19 +198,17 @@ def download(drop_id: int, username: str):
 @app.post("/v1/auth/post_tap", tags=["Auth"])
 def post_tap(req: TapRequest):
     """Called by iPhone Shortcut to signal a hardware tap via the mesh."""
-    username = req.username.lower()
     with db() as conn:
         conn.execute(
             "INSERT OR REPLACE INTO taps (target_user, seed, tapped_at) VALUES (?, ?, ?)",
-            (username, req.seed, int(time.time()))
+            (req.username, req.seed, int(time.time()))
         )
-    logger.info("Mesh Tap received for user: %s", username)
-    return {"status": "tapped", "user": username}
+    logger.info("Mesh Tap received for user: %s", req.username)
+    return {"status": "tapped", "user": req.username}
 
 @app.get("/v1/auth/get_tap/{username}", tags=["Auth"])
 def get_tap(username: str):
     """Called by Mac app to check for any pending tap signals. Consumes if found."""
-    username = username.lower()
     with db() as conn:
         row = conn.execute(
             "SELECT seed, tapped_at FROM taps WHERE target_user = ?", (username,)
